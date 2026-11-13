@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>V8 Engine Simulator 3D</title>
+<style>
+:root{--bg:#090d13;--panel:#111a25;--panel2:#172332;--line:#26384b;--cyan:#35d7ff;--green:#5df0a5;--orange:#ffb454;--red:#ff5e68;--text:#eaf3fb;--muted:#91a4b8}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% 0,#172638,#090d13 60%);color:var(--text);font:14px/1.4 system-ui,-apple-system,Segoe UI,sans-serif}
+header{height:66px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;border-bottom:1px solid var(--line);background:#0b121bdc}
+.brand{font-weight:800;letter-spacing:1.5px}.brand span{color:var(--cyan)}.sub{color:var(--muted);font-size:11px;letter-spacing:2px}
+main{max-width:1500px;margin:auto;padding:18px;display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px}
+.panel{background:linear-gradient(145deg,#14202d,#0e1721);border:1px solid var(--line);border-radius:13px;box-shadow:0 12px 35px #0005;overflow:hidden}
+.viewport-wrap{position:relative;min-height:560px}.viewport{position:absolute;inset:0;min-height:560px}
+.overlay{position:absolute;z-index:2;pointer-events:none;top:16px;left:18px}.eyebrow{font-size:10px;color:var(--cyan);letter-spacing:2px;font-weight:800}.engine-name{font-size:24px;font-weight:800;margin-top:3px}.hint{position:absolute;bottom:14px;left:18px;color:#a9bac9;font-size:11px;pointer-events:none}
+.status-pill{position:absolute;right:16px;top:16px;border:1px solid var(--line);background:#0b121bdc;border-radius:30px;padding:7px 12px;font-size:11px;letter-spacing:1px}
+.side{display:flex;flex-direction:column;gap:12px}.section{padding:15px}.section h2{font-size:12px;letter-spacing:1.6px;color:var(--muted);margin:0 0 13px}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:9px}.metric{background:#0b141e;border:1px solid #203246;border-radius:9px;padding:11px}.metric .label{font-size:10px;color:var(--muted);letter-spacing:1px}.metric .value{font-size:24px;font-weight:750;margin-top:3px;font-variant-numeric:tabular-nums}.unit{font-size:10px;color:var(--muted);margin-left:4px}
+.gauge{height:6px;background:#263747;border-radius:9px;margin-top:8px;overflow:hidden}.gauge>i{display:block;height:100%;width:0;background:var(--cyan);border-radius:9px;transition:width .15s}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:8px}.btn{border:1px solid #35516a;background:#1a2b3b;color:var(--text);border-radius:8px;padding:11px 10px;font-weight:700;cursor:pointer}.btn:hover{filter:brightness(1.2)}.btn.primary{background:linear-gradient(135deg,#087eaa,#07516f);border-color:#159ac4}.btn.stop{background:#45212a;border-color:#71323c}.btn:disabled{opacity:.45;cursor:not-allowed}
+label{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin:13px 0 7px}input[type=range]{width:100%;accent-color:var(--cyan)}
+select{width:100%;padding:10px;border-radius:8px;background:#0b141e;border:1px solid #30465b;color:var(--text)}
+.log{height:112px;overflow:auto;background:#080e15;border:1px solid #1e3041;border-radius:8px;padding:9px;color:#9eb3c7;font:11px/1.6 ui-monospace,monospace}.log .ok{color:var(--green)}.log .warn{color:var(--orange)}.log .bad{color:var(--red)}
+.footer{max-width:1500px;margin:0 auto;padding:0 18px 20px;color:#71869b;font-size:11px}
+@media(max-width:900px){main{grid-template-columns:1fr}.viewport-wrap,.viewport{min-height:440px}.side{display:grid;grid-template-columns:1fr 1fr}.side .panel:last-child{grid-column:1/-1}}
+@media(max-width:560px){header{padding:0 13px}.sub{display:none}main{padding:10px;gap:10px}.side{display:flex}.viewport-wrap,.viewport{min-height:360px}.engine-name{font-size:19px}}
+</style>
+</head>
+<body>
+<header><div><div class="brand">MECH<span>LAB</span> / V8</div><div class="sub">INTERACTIVE POWERTRAIN LABORATORY</div></div><div class="sub">SIMULATION BUILD 01.01</div></header>
+<main>
+  <section class="panel viewport-wrap">
+    <div class="overlay"><div class="eyebrow">LIVE 3D ASSEMBLY</div><div class="engine-name">5.0L V8 ENGINE</div></div>
+    <div class="status-pill" id="statePill">● ENGINE OFF</div>
+    <div class="viewport" id="view"></div>
+    <div class="hint">DRAG TO ORBIT · SCROLL TO ZOOM · RIGHT-CLICK TO PAN</div>
+  </section>
+  <aside class="side">
+    <section class="panel section">
+      <h2>TELEMETRY / LIVE DATA</h2>
+      <div class="metrics">
+        <div class="metric"><div class="label">ENGINE SPEED</div><div class="value"><span id="rpm">0</span><span class="unit">RPM</span></div><div class="gauge"><i id="rpmBar"></i></div></div>
+        <div class="metric"><div class="label">TEMPERATURE</div><div class="value"><span id="temp">22</span><span class="unit">°C</span></div><div class="gauge"><i id="tempBar"></i></div></div>
+        <div class="metric"><div class="label">OIL PRESSURE</div><div class="value"><span id="oil">0.0</span><span class="unit">BAR</span></div><div class="gauge"><i id="oilBar"></i></div></div>
+        <div class="metric"><div class="label">THROTTLE</div><div class="value"><span id="throttleRead">0</span><span class="unit">%</span></div><div class="gauge"><i id="throttleBar"></i></div></div>
+      </div>
+    </section>
+    <section class="panel section">
+      <h2>ENGINE CONTROLS</h2>
+      <div class="controls">
+        <button class="btn primary" id="startBtn">▶ START</button>
+        <button class="btn stop" id="stopBtn">■ STOP</button>
+      </div>
+      <label for="throttle">THROTTLE <b id="throttleLabel">0%</b></label>
+      <input id="throttle" type="range" min="0" max="100" value="0">
+      <label for="load">ENGINE LOAD <b id="loadLabel">20%</b></label>
+      <input id="load" type="range" min="0" max="100" value="20">
+      <label for="engineMode">SIMULATION MODE</label>
+      <select id="engineMode"><option value="normal">Normal operation</option><option value="hot">Cooling fault (overheats)</option><option value="lowoil">Low oil pressure</option></select>
+      <div style="height:10px"></div>
+      <button class="btn" id="soundBtn" style="width:100%">🔊 ENABLE ENGINE SOUND</button>
+    </section>
+    <section class="panel section">
+      <h2>SYSTEM DIAGNOSTICS</h2>
+      <div class="log" id="log"><div class="ok">[SYSTEM] V8 simulation initialized.</div><div>[SYSTEM] Awaiting ignition command...</div></div>
+      <div class="controls" style="margin-top:9px"><button class="btn" id="resetBtn">↻ RESET</button><button class="btn" id="cameraBtn">◎ RESET CAMERA</button></div>
+    </section>
+  </aside>
+</main>
+<div class="footer">Educational visual simulation only — not connected to a real engine. Temperature, pressure, RPM and failure behavior are illustrative.</div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+
+const host=document.getElementById('view');
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x0b131d); scene.fog=new THREE.Fog(0x0b131d,13,27);
+const camera=new THREE.PerspectiveCamera(42,host.clientWidth/host.clientHeight,.1,100); camera.position.set(8,7,10);
+const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(host.clientWidth,host.clientHeight); renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; renderer.outputColorSpace=THREE.SRGBColorSpace; host.appendChild(renderer.domElement);
+const orbit=new OrbitControls(camera,renderer.domElement); orbit.enableDamping=true; orbit.target.set(0,1,0); orbit.minDistance=5; orbit.maxDistance=19;
+scene.add(new THREE.HemisphereLight(0xbfdcff,0x28303a,2.1));
+const keyLight=new THREE.DirectionalLight(0xffffff,3.2); keyLight.position.set(5,9,6); keyLight.castShadow=true; scene.add(keyLight);
+const rim=new THREE.PointLight(0x28bfff,35,18); rim.position.set(-5,4,-4); scene.add(rim);
+const mat=(color,metalness=.4,roughness=.35)=>new THREE.MeshStandardMaterial({color,metalness,roughness});
+const aluminum=mat(0x8797a5,.82,.28), dark=mat(0x263544,.7,.35), steel=mat(0xb9c7d1,.9,.2), black=mat(0x111820,.3,.55), red=mat(0xc64d3d,.45,.32), gold=mat(0xd7a94b,.75,.25), glass= new THREE.MeshStandardMaterial({color:0x3aa7c7,metalness:.5,roughness:.2,transparent:true,opacity:.22});
+const engine=new THREE.Group(); scene.add(engine);
+function box(parent,w,h,d,material,x,y,z){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m}
+function cyl(parent,r1,r2,len,material,x,y,z,rx=0,ry=0,rz=0,segments=24){const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,len,segments),material);m.position.set(x,y,z);m.rotation.set(rx,ry,rz);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m}
+function rod(parent,a,b,r,material){const A=new THREE.Vector3(...a),B=new THREE.Vector3(...b),v=B.clone().sub(A);const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,v.length(),12),material);m.position.copy(A.add(B).multiplyScalar(.5));m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),v.normalize());m.castShadow=true;parent.add(m);return m}
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(30,30),mat(0x111b26,.25,.8));floor.rotation.x=-Math.PI/2;floor.position.y=-.12;floor.receiveShadow=true;scene.add(floor);
+const grid=new THREE.GridHelper(24,24,0x29445a,0x1a2b3b);grid.position.y=-.105;scene.add(grid);
+// Lower crankcase and V banks
+box(engine,3.25,.65,1.65,dark,0,1.05,0);box(engine,3.05,.18,1.48,aluminum,0,.69,0);
+box(engine,2.8,.28,1.25,black,0,1.42,0);
+for(let side of [-1,1]){
+ const bank=new THREE.Group();bank.position.set(0,1.55,side*.52);bank.rotation.x=side*Math.PI/5;engine.add(bank);
+ box(bank,2.9,1.05,.78,aluminum,0,.48,0);
+ // cylinder head cover
+ box(bank,3.05,.16,.88,dark,0,1.08,0);
+ box(bank,2.75,.09,.68,red,0,1.19,0);
+ for(let j=0;j<4;j++){
+  const x=-1.08+j*.72;
+  // cylinder liner and visible bore
+  cyl(bank,.255,.255,.72,black,x,.35,0,0,0,0,32);
+  cyl(bank,.205,.205,.06,steel,x,.73,0,0,0,0,32);
+  // spark plug
+  cyl(bank,.055,.055,.25,gold,x,1.27,0);
+  cyl(bank,.035,.035,.12,steel,x,1.45,0);
+ }
+ // exhaust header runners
+ for(let j=0;j<4;j++){const x=-1.08+j*.72;rod(engine,[x,1.7,side*.95],[x+.18,.65,side*1.25],.075,steel);rod(engine,[x+.18,.65,side*1.25],[x+.55,.55,side*1.25],.075,steel)}
+}
+// front and rear covers
+box(engine,.18,1.5,1.8,gold,-1.68,1.15,0);box(engine,.16,.8,1.6,dark,1.68,1.15,0);
+cyl(engine,.48,.48,.22,black,-1.82,1.15,0,0,0,Math.PI/2,40);cyl(engine,.3,.3,.25,gold,-1.96,1.15,0,0,0,Math.PI/2,40);
+// crankshaft, journals and counterweights
+const crank=new THREE.Group();engine.add(crank);
+rod(crank,[-1.5,.95,0],[1.5,.95,0],.105,steel);
+const pistons=[];
+for(let bankIndex=0;bankIndex<2;bankIndex++){
+ const side=bankIndex===0?-1:1;
+ for(let j=0;j<4;j++){
+  const x=-1.08+j*.72;
+  const moving=new THREE.Group();engine.add(moving);
+  const z=side*.52;
+  const piston= cyl(moving,.205,.205,.25,steel,0,0,0,0,0,0,32);
+  const pin=cyl(moving,.07,.07,.5,gold,0,-.06,0,0,0,Math.PI/2);
+  const conrod=rod(moving,[0,-.13,0],[0,-.85,0],.055,steel);
+  moving.position.set(x,2.45,z);moving.rotation.x=side*Math.PI/5;
+  pistons.push({moving,phase:j*Math.PI/2+bankIndex*Math.PI,side,x,z});
+ }
+}
+// intake manifold
+box(engine,1.9,.28,.8,red,0,2.92,0);
+for(let j=0;j<6;j++){cyl(engine,.12,.12,.48,aluminum,-.75+j*.3,3.22,0,Math.PI/2,0,0,20)}
+// belt, pulleys and accessory details
+for(const [x,y,r] of [[-1.9,1.15,.34],[-1.5,.55,.23],[1.75,.65,.27]]){cyl(engine,r,r,.15,black,x,y,.95,Math.PI/2,0,0,32);cyl(engine,r*.55,r*.55,.17,steel,x,y,1.05,Math.PI/2,0,0,24)}
+// bolts on heads
+for(let s of [-1,1])for(let j=0;j<8;j++){cyl(engine,.035,.035,.04,gold,-1.3+j*.37,2.62,s*.75,Math.PI/2,0,0,12)}
+engine.scale.setScalar(.94);
+
+let running=false,rpm=0,temp=22,oil=0,throttle=0,load=20,mode='normal',soundOn=false,audio=null,osc=null,gain=null,failed=false;
+const $=id=>document.getElementById(id);
+function log(msg,type=''){const el=document.createElement('div');if(type)el.className=type;el.textContent='['+new Date().toLocaleTimeString()+'] '+msg;$('log').prepend(el);while($('log').children.length>18)$('log').lastChild.remove()}
+function start(){if(failed){log('Reset required after simulated engine failure.','bad');return}running=true;$('statePill').textContent='● ENGINE RUNNING';$('statePill').style.color='#5df0a5';log('Ignition ON — V8 started.','ok')}
+function stop(){running=false;throttle=0;$('throttle').value=0;$('throttleLabel').textContent='0%';$('statePill').textContent='● ENGINE OFF';$('statePill').style.color='#91a4b8';log('Ignition OFF.')}
+$('startBtn').onclick=start;$('stopBtn').onclick=stop;
+$('throttle').addEventListener('input',e=>{throttle=+e.target.value;$('throttleLabel').textContent=throttle+'%'});
+$('load').addEventListener('input',e=>{load=+e.target.value;$('loadLabel').textContent=load+'%'});
+$('engineMode').onchange=e=>{mode=e.target.value;log('Simulation mode: '+e.target.selectedOptions[0].text+'.')};
+$('resetBtn').onclick=()=>{stop();rpm=0;temp=22;oil=0;failed=false;$('engineMode').value='normal';mode='normal';$('statePill').textContent='● ENGINE OFF';$('statePill').style.color='#91a4b8';log('Engine values reset.','ok')};
+$('cameraBtn').onclick=()=>{camera.position.set(8,7,10);orbit.target.set(0,1,0);orbit.update()};
+$('soundBtn').onclick=async()=>{if(!audio){audio=new (window.AudioContext||window.webkitAudioContext)();osc=audio.createOscillator();gain=audio.createGain();osc.type='sawtooth';osc.frequency.value=35;gain.gain.value=0;osc.connect(gain);gain.connect(audio.destination);osc.start()}if(audio.state==='suspended')await audio.resume();soundOn=!soundOn;$('soundBtn').textContent=soundOn?'🔇 DISABLE ENGINE SOUND':'🔊 ENABLE ENGINE SOUND';log(soundOn?'Engine sound enabled.':'Engine sound disabled.')};
+function setBar(id,val,max){$(id).style.width=Math.max(0,Math.min(100,val/max*100))+'%'}
+let last=performance.now();
+function animate(now){requestAnimationFrame(animate);const dt=Math.min((now-last)/1000,.05);last=now;
+ const target=running?Math.min(6800,850+throttle*52-load*5):0;
+ rpm+=(target-rpm)*Math.min(1,dt*(running?1.7:2.8));
+ if(running){const heatRate=mode==='hot'?8:2.0;temp+=(heatRate*(.18+throttle/100*.9)-((mode==='hot'?.12:.75)+(temp-22)*.008))*dt;oil=mode==='lowoil'?Math.max(.25,rpm/1800):rpm>100?1.1+rpm/1700:0}
+ else{temp+=(22-temp)*dt*.025;oil+=(0-oil)*dt*2}
+ if(temp>125&&!failed){failed=true;running=false;throttle=0;$('throttle').value=0;log('CRITICAL: simulated over-temperature shutdown.','bad');$('statePill').textContent='● ENGINE FAULT';$('statePill').style.color='#ff5e68'}
+ const angle=now*.001*rpm/60*Math.PI*2;
+ pistons.forEach(p=>{const y=Math.cos(angle+p.phase)*.24;p.moving.position.y=2.45+y});
+ // crank spins visually
+ crank.rotation.x=0;crank.rotation.z=angle*.2;
+ if(soundOn&&gain){osc.frequency.setTargetAtTime(28+rpm/55,audio.currentTime,.06);gain.gain.setTargetAtTime(running?.018:0,audio.currentTime,.08)}
+ $('rpm').textContent=Math.round(rpm).toLocaleString();$('temp').textContent=Math.round(temp);$('oil').textContent=oil.toFixed(1);$('throttleRead').textContent=Math.round(throttle);
+ setBar('rpmBar',rpm,7000);setBar('tempBar',temp,140);setBar('oilBar',oil,5);setBar('throttleBar',throttle,100);
+ $('tempBar').style.background=temp>100?'#ff5e68':'#ffb454';$('oilBar').style.background=oil<.7&&running?'#ff5e68':'#35d7ff';
+ orbit.update();renderer.render(scene,camera)
+}
+requestAnimationFrame(animate);
+new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h)}).observe(host);
+</script>
+</body></html>
